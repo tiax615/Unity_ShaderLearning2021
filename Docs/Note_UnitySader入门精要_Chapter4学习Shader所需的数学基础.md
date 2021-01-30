@@ -280,3 +280,314 @@ orthogonal matrix。如果一个方阵M和它的转置矩阵的乘积是单位�
 1. 相同。乘单位矩阵还是自己
 2. 不同。Av=vAT
 3. 相同。这个矩阵的转置还是自己（对称矩阵）
+
+## 4.5 矩阵的几何意义：变换
+在三维渲染中，矩阵的可视化结果就是变换，包含旋转、缩放和平移。
+
+### 4.5.1 什么是变换
+变换（transform），指我们把一些数据，如点、方向矢量甚至是颜色等，通过某种方式进行转换的过程。
+
+线性变换（linear transform），指那些可以保留矢量加和标量乘的变换。
+* f(x)+f(y)=f(x+y)
+* kf(x)=f(kx)
+
+缩放（scale），旋转（rotation）是线性变换，还有错切（shear）、镜像（mirroring/reflection）、正交投影（orthographic projection）。
+
+平移变换不是线性变换，不能用一个3x3矩阵来表示。**仿射变换（affine transform）**，是合并线性变换和平移变换的变换类型，可以用4x4的矩阵来表示，这就是齐次坐标空间（homogeneous space）。
+
+![](./image/4.19.png)
+
+### 4.5.2 齐次坐标
+为了表示平移操作，需要把原来的三维矢量转换为四维矢量，即齐次坐标（homogeneous coordinate）。
+
+如何把三维矢量转换为齐次坐标：三维坐标转换是把w分量设为1，方向矢量把w设为0。
+
+### 4.5.3 分解基础变换矩阵
+基础变换矩阵：纯平移、纯旋转、纯缩放。
+
+![](./image/4.20.png)
+
+### 4.5.4 平移矩阵
+平移矩阵：基础变换矩阵中的t3x1矢量对应了平移矢量，左上角的矩阵M3x3为单位矩阵I3。
+
+![](./image/4.21.png)
+
+平移变换不会对方向矢量产生任何影响。平移矩阵的逆矩阵就是反向平移得到的矩阵。平移矩阵不是正交矩阵。
+
+### 4.5.5 缩放矩阵
+![](./image/4.22.png)
+
+如果缩放系数kx=ky=kz，称为统一缩放（uniform scale），否则成为非统一缩放（nonuniform scale）。缩放矩阵的逆矩阵是使用原缩放系数的倒数来对点或方向矢量进行缩放。缩放矩阵一般不是正交矩阵。
+
+如果在任意方向上进行缩放，一种方法是先将缩放轴变换成标准坐标轴，然后进行沿坐标轴的缩放，再使用逆变换得到原来的缩放轴朝向。
+
+### 4.5.6 旋转矩阵
+绕坐标轴旋转：
+
+![](./image/4.23.png)
+
+旋转矩阵的逆矩阵是旋转相反角度得到的变换矩阵。旋转矩阵是正交矩阵，而且多个旋转矩阵之间的串联同样是正交的。
+
+### 4.5.7 复合变换
+通过矩阵的串联，把平移、旋转、缩放组合起来：P=MtMrMs。先进行缩放，再旋转，再平移。如果顺序变了，因为矩阵的乘法不满足交换律，结果不同。
+
+TODO：旋转顺序没看明白。
+
+## 4.6 坐标空间
+### 4.6.1 为什么要使用这么多不同的坐标空间
+我们需要在不同的情况下使用不同的坐标空间，因为一些概念只有在特定的坐标空间下才有意义，才更容易理解。
+
+### 4.6.2 坐标空间的变换
+每个坐标空间都是另一个坐标空间的子空间，对坐标空间的变换实际上就是在父空间和子空间之间对点和矢量进行变换。
+
+![](./image/4.24.png)
+
+### 4.6.3 顶点的坐标空间变换过程
+在渲染流水线中，一个顶点要经过多个坐标空间的变换才能最终被画在屏幕上。一个顶点最开始是在模型空间中定义的，最后它将会变换到屏幕空间中。
+
+### 4.6.4 模型空间
+model space，也被称为对象空间（object space）或局部空间（local space）。
+
+在模型空间中，我们经常使用一些方向概念，如前后左右上下。
+
+### 4.6.5 世界空间
+world space，它建立了我们所关心的最大的空间，可以被用于描述绝对位置。
+
+顶点变换的第一步，就是将顶点坐标从模型空间变换到世界空间中。这个变换通常叫做模型变换（model transform）。
+
+先构建出模型变换的变换矩阵（顺序是缩放、旋转、平移），再将模型空间的坐标变换到世界空间。
+
+### 4.6.6 观察空间
+view space，也被称为摄像机空间（camera space）。观察空间x右y上z后，和其他Unity坐标系的z轴相反，这是要符合OpenGL传统，弄成右手坐标系。相机正前方指向的是-z方向。
+
+顶点变换的第二步，就是将顶点坐标从世界空间变换到观察空间中。
+
+### 4.6.7 裁剪空间
+顶点接下来要从观察空间转换到裁剪空间（clip space，也被称为齐次裁剪空间），这个用于变换的矩阵叫做裁剪矩阵（clip matrix），也被称为投影矩阵（projection matrix）。
+
+视锥体（view frustum）决定被剔除的部分，由六个平面包围形成，这些平面被称为裁剪平面（clip planes）。视锥体有两种类型，涉及两种投影类型：
+* 正交投影（orthographic projection）
+* 透视投影（perspective projection）
+
+![](./image/4.25.png)
+
+在视锥体中，两块裁剪平面决定了相机可以看到的深度范围：
+* 近裁剪平面（near clip plane）
+* 远裁剪平面（far clip plane）
+
+![](./image/4.26.png)
+
+如果直接使用视锥体定义的空间裁剪，比较麻烦。所以要用一种更加通用、方便和整洁的方式来进行裁剪，这种方式就是通过一个投影矩阵把顶点转换到一个裁剪空间中。投影矩阵的两个目的：
+* 为投影做准备。投影矩阵没有做真正的投影工作，而是在为投影做准备。真正的投影是发生在后面的齐次除法（homogeneous division），屏幕映射
+* 对xyz分量进行缩放。经过投影矩阵的缩放后，可以直接使用w分量作为范围值，如果xyz分量都位于这个范围内，说明该顶点位于裁剪空间内
+
+下面看一下两种投影类型使用的投影矩阵具体是什么：
+
+**1. 透视投影**
+
+![](./image/4.27.png)
+
+Camera组件的FieldOfView改变视锥体竖直方向的张开角度，ClippingPlanes中的Near和Far控制视锥体近裁剪平面和远裁剪平面距离摄像机的远近：
+
+![](./image/4.28.png)
+
+横向信息通过摄像机的横纵比得到，定义横纵比为：Aspect=nearClipPlaneWidth/nearClipPlaneHeight=farClipPlaneWidth/farClipPlaneHeight。
+
+根据已知的Near、Far、FOV和Aspect来确定透视投影的投影矩阵（推导过程本节略）：
+
+![](./image/4.29.png)
+
+将一个顶点和上述投影矩阵相乘，可以从观察空间变换到裁剪空间：
+
+![](./image/4.30.png)
+
+w分量不是1了，而是-z（正的）。如果顶点在视锥体内，那么它变换后的坐标必须满足：
+* -w≤x≤w
+* -w≤y≤w
+* -w≤z≤w
+
+![](./image/4.31.png)
+
+另外，裁剪矩阵会改变空间的旋向性，空间从右手坐标系变换到了左手坐标系。
+
+**2. 正交投影**
+
+![](./image/4.32.png)
+
+Camera组件的Size来改变视锥体竖直方向上高度的一半，Near和Far还是控制近远裁剪平面：
+
+![](./image/4.33.png)
+
+正交投影的裁剪矩阵如下：
+
+![](./image/4.34.png)
+
+一个顶点和上述投影矩阵相乘后的结果如下：
+
+![](./image/4.35.png)
+
+判断一个变换后的顶点是否位于视锥体内使用的方法和透视投影一样。
+
+![](./image/4.36.png)
+
+### 4.6.8 屏幕空间
+screen space，最后把视锥体投影到屏幕空间。屏幕空间是二维空间，从裁剪空间投影有两个步骤：
+
+一是进行标准齐次除法，也叫做透视除法（perspective division）。用齐次坐标系的w分量去除xyz分量，在OpenGL中，这一步得到的坐标叫做归一化的设备坐标（Normalized Device Coordinates, NDC）。
+
+![](./image/4.37.png)
+![](./image/4.38.png)
+
+二是经过齐次除法后，透视投影和正交投影的视锥体都变换到相同的立方体内，可以通过变换后的xy坐标来映射输出窗口对应的像素坐标：
+
+![](./image/4.39.png)
+
+### 4.6.9 总结
+本节介绍了一个顶点从模型空间变换到屏幕坐标的过程。顶点着色器的基本任务就是把顶点坐标从模型空间转换到裁剪空间，片元着色器我们可以得到该片元在屏幕空间的像素位置。
+
+![](./image/4.40.png)
+
+## 4.7 法线变换
+* 法线（normal），也叫法矢量（normal vector）。如果直接用变换矩阵，无法确保法线的垂直性
+* 切线（tangent），切矢量（tangent vector）。与纹理空间对齐，与法线方向垂直
+
+![](./image/4.41.png)
+![](./image/4.42.png)
+
+切线是两个顶点之间的差值计算的，可以直接用用于变换顶点的变换矩阵来变换切线，方向向量不受平移影响：Tb=Ma->bTa
+
+同一个顶点的切线Ta和法线Na必须垂直，Ta·Na=0，假设用矩阵G来变换法线，那么变换后的法线会依然和变换后的切线垂直：Tb·Nb=(Ma->bTa)·(GNa)=0。
+
+* 使用原变换矩阵的逆转置矩阵来变换法线，就可以得到正确的结果(M-1a->b)T
+* 如果变换矩阵是正交的（只有旋转），可以直接用原变换矩阵Ma->b
+* 如果变换没有非统一缩放（包含旋转和统一缩放），用远变换矩阵的逆转置(1/k)Ma->b
+
+## 4.8 UnityShader的内置变量（数学篇）
+UnityShader提供的内置参数，使我们不需要手动计算一些值。UnityShaderVariables.cginc文件有说明。
+
+### 4.8.1 变换矩阵
+下面所有矩阵都是float4x4类型（Unity5.2）：
+* UNITY_MATRIX_MVP：当前的模型观察投影矩阵，用于将顶点/方向矢量从模型空间->裁剪空间
+* UNITY_MATRIX_MV：当前的模型观察矩阵，用于将顶点/方向矢量从模型空间->观察空间
+* UNITY_MATRIX_V：当前的观察矩阵，用于将顶点/方向矢量从世界空间->观察空间
+* UNITY_MATRIX_P：当前的投影矩阵，用于将顶点/方向矢量从观察空间->裁剪空间
+* UNITY_MATRIX_VP：当前的观察投影矩阵，用于将顶点/方向矢量从世界空间->裁剪空间
+* UNITY_MATRIX_T_MV：UNITY_MATRIX_MV的转置矩阵
+* UNITY_MATRIX_IT_MV：UNITY_MATRIX_MV的逆转置矩阵，用于将法线从模型空间变换到观察空间，也可用于得到UNITY_MATRIX_MV的逆矩阵
+* _Object2World：当前的模型矩阵，用于将顶点/方向矢量从模型空间变换到世界空间
+* _World2Object：_Object2World的逆矩阵，用于将顶点/方向矢量从世界空间变换到模型空间
+
+UNITY_MATRIX_MV，在正交时（仅旋转），UNITY_MATRIX_T_MV就是它的逆矩阵。如果考虑统一缩放k，逆矩阵乘1/k。如果只变换方向矢量，取UNITY_MATRIX_T_MV的前3行前3列把方向矢量从观察空间变换到模型空间。
+
+### 4.8.2 摄像机和屏幕参数
+Unity提供了一些内置变量，让我们访问当前正在渲染的相机的参数信息（Unity5.2）：
+* _WorldSpaceCameraPos：float3，该相机在世界空间中的位置
+* _ProjectionParams：float4，x=1.0，y=Near，z=Far，w=1.0+1.0/Far。Far和Near为远近裁剪平面和相机的距离
+* _ScreenParams：float4，x=width，y=height，z=1.0+1.0/width，w=1.0+1.0/height。width和height为相机渲染目标的像素宽度和高度
+* _ZBufferParams：float，x=1-Far/Near，y=Far/Near，z=x/Far，w=y/Far，用于线性化Z缓存中的深度值
+* unity_OrthoParams：float4，x=width，y=height，z没有定义，w=1.0（正交相机）或w=0.0（透视相机）。width和height是正交投影相机的宽度和高度
+* unity_CameraProjection：float4x4，该相机的投影矩阵
+* unity_CameraInvProjection：float4x4，该相机的投影矩阵的逆矩阵
+* unity_CameraWorldClipPlanes[6]：float4，该相机的6个裁剪平面在世界空间下的等式，顺序：左、右、下、上、近、远裁剪平面
+
+## 4.9 答疑解惑
+### 4.9.1 使用3x3还是4x4的变换矩阵
+* 线性变换（旋转、缩放等），用3x3就够了
+* 有平移，要用4x4。对顶点的变换通常用4x4，w分量设为1
+* 对方向矢量的变换用3x3
+
+### 4.9.2 Cg中的矢量和矩阵类型
+对于float3、float4等变量，既可以当成矢量，也可以当成1xn行矩阵或nx1列矩阵：
+```
+float4 a=float4(1.0,2.0,3.0,4.0);
+float4 b=float4(1.0,2.0,3.0,4.0);
+
+// 点积
+float result=dot(a,b)
+```
+
+矩阵乘法，参数的位置决定是看作列矩阵还是行矩阵，在Cg中矩阵乘法是mul函数：
+```
+float4 v=float4(1.0,2.0,3.0,4.0);
+float4x4 M=float4x4(1.0,0.0,0.0,0.0,
+                    0.0,2.0,0.0,0.0,
+                    0.0,0.0,3.0,0.0,
+                    0.0,0.0,0.0,4.0);
+
+// 把v当成列矩阵和M右乘
+float4 column_mul_result=mul(M,v);
+// 把v当成行矩阵和M左乘
+float4 row_mul_result=mul(v,M);
+
+// colume_mul_result不等于row_mul_result，而是等于...转置
+mul(M,v)==mul(v,tranpose(M))
+mul(v,M)==mul(tranpose(M),v)
+```
+
+注意Cg对矩阵类型中元素的初始化和访问顺序：
+* 矩阵类型的变量是按行优先来进行填充的
+* 访问元素时，也是按行来索引的
+```
+float3x3 M=float3x3(1.0,2.0,3.0,
+                    4.0,5.0,6.0,
+                    7.0,8.0,9.0);
+
+// 第1行，(1.0,2.0,3.0)
+float3 row=M[0];
+
+// 第2行第1列的元素，4.0
+float ele=M[1][0];
+```
+
+Unity脚本中的矩阵类型Matrix4x4是按列优先，区别。
+
+### 4.9.3 Unity中的屏幕坐标：ComputeScreenPos/VPOS/WPOS
+在顶点/片元着色器中，有两种方式来获得片元的屏幕坐标。
+
+一种是在片元着色器的输入中声明VPOS或WPOS语义：
+```
+fixed4 frag(float4 sp:VPOS):SV_Target{
+  // 用屏幕坐标除以屏幕分辨率_ScreenParams.xy，得到视口空间中的坐标
+  return fixed4(sp.xy/_ScreenParams.xy,0.0,1.0);
+}
+```
+
+![](./image/4.43.png)
+
+xy值代表了在屏幕空间中的像素坐标，如果屏幕分辨率是400x300，那么x的范围是[0.5,400.5]，y的范围是[0.5,300.5]，这里的像素坐标不是整数值，因为OpenGL和DX10以后的版本认为像素中心对应的是浮点值中的0.5。z值范围为[0,1]，从近裁剪平面，到远裁剪平面。w分量和相机投影类型相关，透视投影是[1/Near,1/Far]，正交投影是1。
+
+视口空间（viewport space），就是把屏幕坐标归一化，让屏幕左下角是(0,0)，右上角是(1,1)。
+
+另一种是通过Unity提供的ComputeScreenPos函数。首先在顶点着色器中将ComputeScreenPos的结果保存在输出结构体中，然后在片元着色器中进行一个齐次除法运算后得到视口空间下的坐标：
+```
+struct vertOut{
+  float4 pos:SV_POSITION;
+  float scrPos:TEXCOORD0;
+}
+
+verOut vert(appdata_base v){
+  verOut o;
+  o.pos=mul(UNITY_MATRIX_MVP,v.vertex);
+  
+  // 第一步：把ComputeScreenPos的结果保存在scrPos中
+  o.scrPos=ComputeScreenPos(o.pos);
+  return o;
+}
+
+fixed4 frag(vertOut i):SV_Target{
+  // 第二步：用scrPos.xy除以scrPos.w得到视口空间的坐标
+  float2 wcoord=(i.scrPos.xy/i.scrPos.w);
+  return fixed4(wcoord,0.0,1.0);
+}
+```
+
+这种方法实际上是手动实现了屏幕映射的过程。透视时，z的范围是[-Near,Far]，w的范围是[Near,far]；正交时z的范围是[-1,1]，w恒为1。
+
+## 4.10 扩展阅读
+1. 图形学数学学习资料：Fletcher Dunn / Ian Parberry 《3D Math Primer for Graphics and Game Development》
+2. 图形学数学学习资料：Eric Lengyel 《Mathematics for 3D Game Programming and Computer Graphics, 3rd Edition》
+3. 如何从左手坐标系转换到右手坐标系同时又保持视觉效果一样：David Eberly 《Conversion of Left-Handed Coordinates to Right-Handed Coordinates》
+4. 如何得到线性的深度值：http://www.humus.name/temp/Linearize%20depth.txt
+
+## 4.11 练习题答案
+略，我全对啦。
