@@ -65,7 +65,7 @@ BRDF（Bidirectional Reflectance Distribution Function）用来描述，当已�
 
 反射方向：r=2(n·l)n-l。*怎么来的呢，简单推导一下（写错了下图的v应该是r）：*
 
-![](./Image/6.4.jpg)
+![](./Image/6.4.png)
 
 用Phong模型计算高光反射的部分：Cspecular=(Clight·Mspecular)max(0,v·r)^Mgloss。
 
