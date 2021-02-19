@@ -386,3 +386,219 @@ Shader "ShaderLearning/Shader7.2_NormalMapWorldSpace"{
 在某些平台上，这个函数对DXT5nm格式的法线纹理进行了解码。
 
 ## 7.3 渐变纹理
+纹理除了定义物体的颜色，其实还可以用于储存任何表面属性，例如使用渐变纹理来控制漫反射光照结果。
+
+Gooch等人在1998年提出**冷到暖色调（cool-to-warm tones）**着色技术，用来得到插画风格的渲染效果，使物理的轮廓线相比之前使用的传统漫反射光照更加明显。
+
+![](./Image/7.9.png)
+
+上图中：
+
+* 左：紫色到浅黄色色调的渐变纹理
+* 中：黑色到浅灰色，中间的分界线部分微微发红
+* 右：通常用于卡通风格渲染，色调是突变没有平滑过渡
+
+```
+Shader "ShaderLearning/Shader7.3_RampTexture"{
+    Properties{
+        _Color("Color Tint",Color)=(1,1,1,1)
+        _RampTex("Ramp Tex",2D)="white"{}
+        _Specular("Specular",Color)=(1,1,1,1)
+        _Gloss("Gloss",Range(8.0,256))=20
+    }
+
+    SubShader{
+        Pass{
+            Tags{"LightMode"="ForwardBase"}
+
+            CGPROGRAM
+
+            #pragma vertex vert
+            #pragma fragment frag
+            #include "Lighting.cginc"
+
+            fixed4 _Color;
+            sampler2D _RampTex;
+            float4 _RampTex_ST;
+            fixed4 _Specular;
+            float _Gloss;
+
+            struct a2v{
+                float4 vertex:POSITION;
+                float3 normal:NORMAL;
+                float4 texcoord:TEXCOORD0;
+            };
+
+            struct v2f{
+                float4 pos:SV_POSITION;
+                float3 worldNormal:TEXCOORD0;
+                float3 worldPos:TEXCOORD1;
+                float2 uv:TEXCOORD2;
+            };
+
+            v2f vert(a2v v){
+                v2f o;
+
+                o.pos=UnityObjectToClipPos(v.vertex);
+                o.worldNormal=UnityObjectToWorldNormal(v.normal);
+                o.worldPos=UnityObjectToWorldDir(v.vertex);
+                o.uv=TRANSFORM_TEX(v.texcoord,_RampTex);
+
+                return o;
+            }
+
+            fixed4 frag(v2f i):SV_TARGET{
+                fixed3 worldNormal=normalize(i.worldNormal);
+                fixed3 worldLight=normalize(UnityWorldSpaceLightDir(i.worldPos));
+
+                fixed3 ambient=UNITY_LIGHTMODEL_AMBIENT.xyz;
+
+                // Use the texture to sample the diffuse color
+                fixed halfLambert=0.5*dot(worldNormal,worldLight)+0.5;
+                fixed3 diffuseColor=tex2D(_RampTex,fixed2(halfLambert,halfLambert)).rgb*_Color.rgb;
+
+                fixed3 diffuse=_LightColor0.rgb*diffuseColor;
+
+                fixed3 viewDir=normalize(UnityWorldSpaceViewDir(i.worldPos));
+                fixed3 halfDir=normalize(worldLight+viewDir);
+                fixed3 specular=_LightColor0.rgb*_Specular.rgb*pow(max(0,dot(worldNormal,halfDir)),_Gloss);
+
+                return fixed4(ambient+diffuse+specular,1.0);
+            }
+
+            ENDCG
+        }
+    }
+}
+```
+
+*使用worldNormal和worldLight来计算半兰伯特系数，用半兰伯特系数构建纹理坐标，对_RampTex采样，得到漫反射的系数值，将这个值乘以漫反射材质颜色，就是最终的漫反射颜色diffuse。环境光和高光反射的计算是常规的。*
+
+*使用作者提供的三种渐变纹理结果如下：*
+
+![](./Image/7.10.png)
+![](./Image/7.11.png)
+![](./Image/7.12.png)
+
+
+**注意：** 需要把渐变纹理的WarpMode设为Clamp，防止Repeat时对纹理采样时由于浮点数精度造成问题。理论上halfLambert值[0,1]，但可能会1.00001，如果是Repeat模式就会得到0.00001黑色。*以下是Repeat的状况，有不符合预期的黑色污渍*：
+
+![](./Image/7.13.png)
+
+## 7.4 遮罩纹理
+**遮罩纹理（mask texture）**，保护某些区域，使它们免于某些修改。例如，之前是将高光反射用于表面所有地方，但实际上某些区域反光可能强烈或弱一些，这就可以用遮罩纹理来控制光照。
+
+通过采样得到遮罩纹理的纹素值，用其中某个或几个通道的值（如r）和某种表面属性相乘。这样当该通道值为0时，可以保护表面不受该属性影响。
+
+### 7.4.1 实践
+```
+Shader "ShaderLearning/Shader7.4_MaskTexture"{
+    Properties{
+        _Color("Color Tint",Color)=(1,1,1,1)
+        _MainTex("Main Tex",2D)="white"{}
+        _BumpMap("Normal Map",2D)="bump"{}
+        _BumpScale("Bump Scale",Float)=1.0
+        _SpecularMask("Specular Mask",2D)="white"{}
+        _SpecularScale("Specular Scale",Float)=1.0
+        _Specular("Specular",Color)=(1,1,1,1)
+        _Gloss("Gloss",Range(8.0,256))=20
+    }
+
+    SubShader{
+        Pass{
+            Tags{"LightMode"="ForwardBase"}
+
+            CGPROGRAM
+
+            #pragma vertex vert
+            #pragma fragment frag
+            #include "Lighting.cginc"
+
+            fixed4 _Color;
+            sampler2D _MainTex;
+            float4 _MainTex_ST; // 主纹理、法线纹理、遮罩纹理共用主纹理的平铺和偏移系数
+            sampler2D _BumpMap;
+            float _BumpScale;
+            sampler2D _SpecularMask;
+            float _SpecularScale;
+            fixed4 _Specular;
+            float _Gloss;
+
+            struct a2v{
+                float4 vertex:POSITION;
+                float3 normal:NORMAL;
+                float4 tangent:TANGENT;
+                float4 texcoord:TEXCOORD0;
+            };
+
+            struct v2f{
+                float4 pos:SV_POSITION;
+                float2 uv:TEXCOORD0;
+                float3 lightDir:TEXCOORD1;
+                float3 viewDir:TEXCOORD2;
+            };
+
+            // 将光照方向和视角方向，从模型空间变换到切线空间
+            // 以便在片元着色器中和法线进行光照运算
+            v2f vert(a2v v){
+                v2f o;
+                o.pos=UnityObjectToClipPos(v.vertex);
+                o.uv.xy=v.texcoord.xy*_MainTex_ST.xy+_MainTex_ST.zw;
+
+                TANGENT_SPACE_ROTATION; // 内置宏TANGENT_SPACE_ROTATION，直接计算得到rotation
+                o.lightDir=mul(rotation,ObjSpaceLightDir(v.vertex)).xyz;
+                o.viewDir=mul(rotation,ObjSpaceViewDir(v.vertex)).xyz;
+
+                return o;
+            }
+
+            // 在片元着色器中使用遮罩纹理
+            fixed4 frag(v2f i):SV_Target{
+                fixed3 tangentLightDir=normalize(i.lightDir);
+                fixed3 tangentViewDir=normalize(i.viewDir);
+
+                fixed3 tangentNormal=UnpackNormal(tex2D(_BumpMap,i.uv));
+                tangentNormal.xy*=_BumpScale;
+                tangentNormal.z=sqrt(1.0-saturate(dot(tangentNormal.xy,tangentNormal.xy))); // 因为法线是单位矢量，可以使用xy来计算z=sqrt(1-(x^2+y^2))
+
+                fixed3 albedo=tex2D(_MainTex,i.uv).rgb*_Color.rgb;
+
+                fixed3 ambient=UNITY_LIGHTMODEL_AMBIENT.xyz*albedo;
+
+                fixed3 diffuse=_LightColor0.rgb*albedo*max(0,dot(tangentNormal,tangentLightDir));
+
+                fixed3 halfDir=normalize(tangentLightDir+tangentViewDir);
+                // Get the mask value
+                // fixed3 specularMask=_SpecularScale;
+                fixed3 specularMask=tex2D(_SpecularMask,i.uv).r*_SpecularScale;
+                // Compute specular term with the specular mask
+                fixed3 specular=_LightColor0.rgb*_Specular.rgb*pow(max(0,dot(tangentNormal,halfDir)),_Gloss)*specularMask;
+
+                // return fixed4(ambient+diffuse,1.0);
+                return fixed4(ambient+diffuse+specular,1.0);
+            }
+
+            ENDCG
+        }
+    }
+}
+```
+
+计算高光反射时，先对_SpecularMask进行采样，将r值和_SpecularScale相乘得到控制高光反射的强度。
+
+*修改此Shader依次得到，只包含漫反射、未使用遮罩的高光反射、使用遮罩的高光反射。对比如下：*
+
+![](./Image/7.14.png)
+
+### 7.4.2 其他遮罩纹理
+在真实游戏制作过程中，通常会充分利用一张纹理的RGBA四个通道。例如，把高光反射的强度存储在R通道，把边缘光照的强度存储在G通道，把高光反射的指数部分存储在B通道，把自发光强度存储在A通道。
+
+在《DOTA2》中，用了4张纹理：一张是模型颜色，一张是表面法线，另外两张遮罩纹理提供了8种额外的表面属性。
+
+*查阅资料发现DOTA2目前在2021年2月，似乎不止这么些遮罩纹理。这是创意工坊的文档，也许是为了方便美术工作：*
+
+![](./Image/7.15.png)
+![](./Image/7.16.png)
+
+## 999. 引用
+Dota 2 Workshop - Item Shader Masks：https://support.steampowered.com/kb_article.php?ref=3081-QUXN-6209#source1

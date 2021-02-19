@@ -63,9 +63,11 @@
      <None Include="Assets\Shaders\Shader7.2_NormalMapWorldSpace.shader" />
      <None Include="Assets\Shaders\Shader5.2_SimpleShader.shader" />
      <None Include="Assets\Shaders\Shader5.5_FalseColor.shader" />
+     <None Include="Assets\Shaders\Shader7.4_MaskTexture.shader" />
      <None Include="Assets\Shaders\Shader7.1_SingleTexture.shader" />
      <None Include="Assets\Shaders\Shader6.4_DiffusePixelLevel.shader" />
      <None Include="Assets\Shaders\Shader7.2_NormalMapTangentSpace.shader" />
+     <None Include="Assets\Shaders\Shader7.3_RampTexture.shader" />
      <None Include="Assets\Shaders\Shader3.3_ShaderLabProperties.shader" />
      <None Include="Assets\Shaders\Shader6.5_BlinnPhong.shader" />
  <Reference Include="UnityEngine">
