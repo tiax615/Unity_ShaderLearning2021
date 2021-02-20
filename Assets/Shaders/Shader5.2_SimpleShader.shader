@@ -61,7 +61,8 @@ Shader "ShaderLearning/Shader5.2_SimpleShader"{
                 fixed3 c=i.color;
                 // 使用_Color属性来控制输出颜色
                 c*=_Color.rgb;
-                return fixed4(c,1.0);
+                // return fixed4(c,1.0);
+                return fixed4(0.0,1.0,0.0,1.0);
             }
 
             ENDCG
