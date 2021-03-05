@@ -61,7 +61,7 @@ Shader "ShaderLearning/Shader9.4_Shadow"{
 
             fixed4 frag(v2f i):SV_Target{
                 // Use shadow coordinates to sample shadow map
-                fixed shadow=SHADOW_ATTENUATION(i);
+                // fixed shadow=SHADOW_ATTENUATION(i);
 
                 // Get ambient term
                 // 首先计算场景中的环境光
@@ -84,9 +84,13 @@ Shader "ShaderLearning/Shader9.4_Shadow"{
 
                 // The attenuation of directional light is always 1
                 // 平行光没有衰减，令衰减值为1.0
-                fixed atten=1.0;
+                // fixed atten=1.0;
 
-                return fixed4(ambient+(diffuse+specular)*atten*shadow,1.0);
+                // UNITY_LIGHT_ATTENUATION not only compute attenuation, but also shadow infos
+                UNITY_LIGHT_ATTENUATION(atten,i,i.worldPos);
+
+                // return fixed4(ambient+(diffuse+specular)*atten*shadow,1.0);
+                return fixed4(ambient+(diffuse+specular)*atten,1.0);
             }
 
             ENDCG
@@ -103,6 +107,7 @@ Shader "ShaderLearning/Shader9.4_Shadow"{
 
             // Apparently need to add this declaration
             #pragma multi_compile_fwdadd
+            // #pragma multi_compile_fwdadd_fullshadows
 
             #pragma vertex vert
             #pragma fragment frag

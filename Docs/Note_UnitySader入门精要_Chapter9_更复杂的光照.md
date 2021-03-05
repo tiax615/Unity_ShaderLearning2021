@@ -567,6 +567,100 @@ return fixed4(ambient+(diffuse+specular)*atten*shadow,1.0);
 ![](./Image/9.25.png)
 
 ### 9.4.4 统一管理光照衰减和纹理
+实际上，光照衰减和阴影对物体最终渲染结果的影响本质上是相同的——我们都是把光照衰减和阴影值及光照结果相乘得到最终的渲染结果。通过内置的**UNITY_LIGHT_ATTENUATION**，可以同时计算两个信息。
+
+在Shader9.4_Shadow基础上稍作修改。片元着色器中，使用UNITY_LIGHT_ATTENUATION直接计算光照衰减和阴影值的共同结果，保存在第一个参数中。
+
+```
+// UNITY_LIGHT_ATTENUATION not only compute attenuation, but also shadow infos
+UNITY_LIGHT_ATTENUATION(atten,i,i.worldPos);
+
+// return fixed4(ambient+(diffuse+specular)*atten*shadow,1.0);
+return fixed4(ambient+(diffuse+specular)*atten,1.0);
+```
+
+运行结果和单独计算衰减及阴影一致。
+
+### 9.4.5 透明度物体的阴影
+对大多数不透明物体来说，把Fallback设为VertexLit就可以得到正确的阴影。对于透明物体，要小心处理。
+
+透明度测试如果使用VertexLit、Diffuse、Specular等作为回调，往往无法得到正确的阴影。（*实际上看起来阴影也是正确的，如下图使用的是Shader8.3_AlphaTest，它回调使用的是Transparent/Cutout/VertexLit*）
+
+![](./Image/9.26.png)
+
+下面改造Shader8.3_AlphaTest增加关于阴影的计算，手动实现透明度测试的物体投射阴影。新Shader名字是Shader9.4_AlphaTestWithShadow。
+
+首先包含进需要的头文件：
+
+```
+#include "Lighting.cginc"
+#include "AutoLight.cginc"
+```
+
+在v2f中使用内置宏SHADOW_COORDS声明阴影纹理坐标：
+
+```
+struct v2f{
+    float4 pos:SV_POSITION;
+    float3 worldNormal:TEXCOORD0;
+    float3 worldPos:TEXCOORD1;
+    float2 uv:TEXCOORD2;
+    SHADOW_COORDS(3) // 已经占用了3个插值寄存器，所以阴影纹理坐标将占用第4个
+};
+```
+
+在顶点着色器中使用内置宏TRANSFER_SHADOW计算阴影纹理坐标后传递给片元着色器：
+
+```
+v2f vert(a2v v){
+    v2f o;
+    ...
+    // Pass Shadow coordinates to pixel shade
+    TRANSFER_SHADOW(o);
+
+    return o;
+}
+```
+
+在片元着色器中，使用内置宏UNITY_LIGHT_ATTENUATION计算阴影和光照衰减：
+
+```
+fixed4 frag(v2f i):SV_Target{
+    ...
+    // UNITY_LIGHT_ATTENUATION ont only compute attenuation, but also shadow infos
+    UNITY_LIGHT_ATTENUATION(atten,i,i.worldPos);
+
+    // return fixed4(ambient+diffuse,1.0);
+    return fixed4(ambient+diffuse*atten,1.0);
+}
+```
+
+最后使用VertexLit作为回调：
+
+```
+Fallback "VertexLit"
+```
+
+效果如下，投射出了整个立方体的阴影没有镂空的感觉。这是因为内置的VertexLit提供的ShadowCaster没有进行透明度测试的计算。将Fallback改为Transparent/Cutout/VertexLit，就有镂空的阴影了，在这个Fallback中，使用了名为_Cutoff的属性来进行透明度测试。
+
+![](./Image/9.27.png)
+
+最后将正方体MeshRenderer组件中的CastShadows属性设置为TwoSided，得到的结果如下：
+
+![](./Image/9.28.png)
+
+对于透明度混合，因为关闭了深度写入，所以阴影处理很复杂。所有内置的透明度混合的UnityShader，如Transparent/VertexLit都不包含阴影投射的Pass，它不会向其他物体投射阴影，也不会接收来自其他物体的阴影。
+
+如果强行设置它们的Fallback为VertexLit、Diffuse等，阴影会投射到半透明物体表面，也是不正确的。
+
+![](./Image/9.29.png)
+
+## 9.5 本书使用的标准UnityShader
+之前作者一直强调，代码不能用到实际项目中，因为缺少了一些光照计算。现在已经学习了Unity中所有的基础光照计算，如多光源、阴影和光照衰减，可以整合到一起实现一个标准光照着色器了。
+
+在本书资源的Assets/Shaders/Common中提供了BumpedDiffuse和BumpedSpecular，都包含了对法线纹理、多光源、光照衰减和阴影的处理。BumpedDiffuse使用了Phong光照模型，BumpedSpecular使用了Blinn-Phong光照模型。
+
+*代码不贴了，就是把这章之前的内容整合在一起。*
 
 # 999. 引用
 1. 官方文档-渲染路径：https://docs.unity3d.com/cn/current/Manual/RenderingPaths.html
