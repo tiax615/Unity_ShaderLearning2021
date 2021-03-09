@@ -312,9 +312,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   material: {fileID: 2100000, guid: 61885b01d837ff545bba5a6df46da767, type: 2}
   m_textureWidth: 512
-  m_backgroundColor: {r: 1, g: 1, b: 1, a: 1}
-  m_circleColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
-  m_blurFactor: 2
+  m_backgroundColor: {r: 0.17621931, g: 0.45081213, b: 0.6792453, a: 1}
+  m_circleColor: {r: 1, g: 0.02794075, b: 0, a: 1}
+  m_blurFactor: 50
 --- !u!1 &1509798134
 GameObject:
   m_ObjectHideFlags: 0
