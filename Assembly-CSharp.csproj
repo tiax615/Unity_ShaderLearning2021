@@ -36,7 +36,9 @@
     <ImplicitlyExpandDesignTimeFacades>false</ImplicitlyExpandDesignTimeFacades>
   </PropertyGroup>
   <ItemGroup>
+     <Compile Include="Assets\Scripts\BrightnessSaturationAndContrast.cs" />
      <Compile Include="Assets\Scripts\ColorPicker.cs" />
+     <Compile Include="Assets\Scripts\PostEffectsBase.cs" />
      <Compile Include="Assets\Scripts\ProceduralTextureGeneration.cs" />
      <Compile Include="Assets\Scripts\SetPropertyAttribute.cs" />
      <Compile Include="Assets\Scripts\SetPropertyExample.cs" />
@@ -58,6 +60,7 @@
      <None Include="Assets\Shaders\Shader5.2_SimpleShader.shader" />
      <None Include="Assets\Shaders\Shader5.5_FalseColor.shader" />
      <None Include="Assets\Shaders\Shader7.4_MaskTexture.shader" />
+     <None Include="Assets\Shaders\Shader12.2_BrightnessSaturationAndContrast.shader" />
      <None Include="Assets\Shaders\Shader10.2_Mirror.shader" />
      <None Include="Assets\Shaders\BumpedSpecular.shader" />
      <None Include="Assets\Shaders\Shader11.3_Billboard.shader" />
