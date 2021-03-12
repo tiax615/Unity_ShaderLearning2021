@@ -36,8 +36,12 @@
     <ImplicitlyExpandDesignTimeFacades>false</ImplicitlyExpandDesignTimeFacades>
   </PropertyGroup>
   <ItemGroup>
+     <Compile Include="Assets\Scripts\Bloom.cs" />
      <Compile Include="Assets\Scripts\BrightnessSaturationAndContrast.cs" />
      <Compile Include="Assets\Scripts\ColorPicker.cs" />
+     <Compile Include="Assets\Scripts\EdgeDetection.cs" />
+     <Compile Include="Assets\Scripts\GaussianBlur.cs" />
+     <Compile Include="Assets\Scripts\MotionBlur.cs" />
      <Compile Include="Assets\Scripts\PostEffectsBase.cs" />
      <Compile Include="Assets\Scripts\ProceduralTextureGeneration.cs" />
      <Compile Include="Assets\Scripts\SetPropertyAttribute.cs" />
@@ -45,9 +49,11 @@
      <None Include="Assets\Shaders\Shader6.4_HalfLambert.shader" />
      <None Include="Assets\Shaders\Shader8.6_BlendOperation.shader" />
      <None Include="Assets\Shaders\Shader9.4_Shadow.shader" />
+     <None Include="Assets\Shaders\Shader12.6_MotionBlur.shader" />
      <None Include="Assets\Shaders\Shader6.5_SpecularPixelLevel.shader" />
      <None Include="Assets\Shaders\Shader8.3_AlphaTest.shader" />
      <None Include="Assets\Shaders\Shader6.5_SpecularVertexLevel.shader" />
+     <None Include="Assets\Shaders\Shader12.4_GaussianBlur.shader" />
      <None Include="Assets\Shaders\Shader8.4_AlphaBlend.shader" />
      <None Include="Assets\Shaders\Shader9.4_AlphaTestWithShadow.shader" />
      <None Include="Assets\Shaders\Shader10.2_GlassRefraction.shader" />
@@ -66,6 +72,7 @@
      <None Include="Assets\Shaders\Shader11.3_Billboard.shader" />
      <None Include="Assets\Shaders\Shader11.2_ImageSequenceAnimation.shader" />
      <None Include="Assets\Shaders\Shader7.1_SingleTexture.shader" />
+     <None Include="Assets\Shaders\Shader12.5_Bloom.shader" />
      <None Include="Assets\Shaders\Shader10.1_Reflection.shader" />
      <None Include="Assets\Shaders\Shader10.1_Fresnel.shader" />
      <None Include="Assets\Shaders\Shader8.7_AlphaBlendBothSided.shader" />
@@ -77,6 +84,7 @@
      <None Include="Assets\Shaders\Shader3.3_ShaderLabProperties.shader" />
      <None Include="Assets\Shaders\Shader8.5_AlphaBlendZWrite.shader" />
      <None Include="Assets\Shaders\Shader6.5_BlinnPhong.shader" />
+     <None Include="Assets\Shaders\Shader12.3_EdgeDetection.shader" />
     <Reference Include="UnityEngine">
         <HintPath>C:/Program Files/Unity/Hub/Editor/2019.4.18f1c1/Editor/Data/Managed/UnityEngine/UnityEngine.dll</HintPath>
     </Reference>
