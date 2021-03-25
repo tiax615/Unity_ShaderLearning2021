@@ -571,5 +571,176 @@ Shader "ShaderLearning/Shader13.3_FogWithDepthTexture"{
 
 Roberts算子的本质是计算左上角和右下角的差值，乘以右上角和左下角的差值，作为评估边缘的依据。
 
+完整的C#代码如下，作用仅仅是把参数传给Shader并执行：
+
+```
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+
+public class EdgeDetectNormalsAndDepth : PostEffectsBase
+{
+    public Shader edgeDetectShader;
+    private Material edgeDetectMaterial = null;
+    public Material material
+    {
+        get
+        {
+            edgeDetectMaterial = CheckShaderAndCreateMaterial(edgeDetectShader, edgeDetectMaterial);
+            return edgeDetectMaterial;
+        }
+    }
+    [Range(0.0f, 1.0f)]
+    public float edgesOnly = 0.0f;
+    public Color edgeColor = Color.black;
+    public Color backgroundColor = Color.white;
+    public float sampleDistance = 1.0f; // 采样距离。视觉上看，值越大描边越宽
+    public float sensitivityDepth = 1.0f; // 邻域深度灵敏度
+    public float sensitivityNormals = 1.0f; // 邻域法线灵敏度
+
+    void OnEnable()
+    {
+        GetComponent<Camera>().depthTextureMode |= DepthTextureMode.DepthNormals;
+    }
+
+    [ImageEffectOpaque] // 只希望对不透明物体进行描边，不描边透明物体
+    void OnRenderImage(RenderTexture src, RenderTexture dest)
+    {
+        if (material != null)
+        {
+            material.SetFloat("_EdgeOnly", edgesOnly);
+            material.SetColor("_EdgeColor", edgeColor);
+            material.SetColor("_BackgroundColor", backgroundColor);
+            material.SetFloat("_SampleDistance", sampleDistance);
+            material.SetVector("_Sensitivity", new Vector4(sensitivityNormals, sensitivityDepth, 0.0f, 1.0f));
+
+            Graphics.Blit(src, dest, material);
+        }
+        else
+        {
+            Graphics.Blit(src, dest);
+        }
+    }
+}
+```
+
+完整的Shader代码如下：
+
+```
+Shader "ShaderLearning/Shader13.4_EdgeDetectNormalsAndDepth"{
+    Properties{
+        _MainTex("Base (RGB)",2D)="white"{}
+        _EdgeOnly("Edge Only",Float)=1.0
+        _EdgeColor("Edge Color",Color)=(0,0,0,1)
+        _BackgroundColor("Background Color",Color)=(1,1,1,1)
+        _SampleDistance("Sample Distance",Float)=1.0
+        _Sensitivity("Sensitivity",Vector)=(1,1,1,1)
+    }
+    SubShader{
+        CGINCLUDE
+
+        #include "UnityCG.cginc"
+
+        sampler2D _MainTex;
+        half4 _MainTex_TexelSize;
+        fixed _EdgeOnly;
+        fixed4 _EdgeColor;
+        fixed4 _BackgroundColor;
+        float _SampleDistance;
+        half4 _Sensitivity;
+        sampler2D _CameraDepthNormalsTexture;
+
+        struct v2f{
+            float4 pos:SV_POSITION;
+            half2 uv[5]:TEXCOORD0;
+        };
+
+        v2f vert(appdata_img v){
+            v2f o;
+            o.pos=UnityObjectToClipPos(v.vertex);
+            half2 uv=v.texcoord;
+            o.uv[0]=uv;
+
+            // 进行了平台差异化处理
+            // 必要时对竖直方向进行了翻转
+            #if UNITY_UV_STARTS_AT_TOP
+            if(_MainTex_TexelSize.y<0)
+                uv.y=1-uv.y;
+            #endif
+
+            o.uv[1]=uv+_MainTex_TexelSize.xy*half2(1,1)*_SampleDistance;
+            o.uv[2]=uv+_MainTex_TexelSize.xy*half2(-1,-1)*_SampleDistance;
+            o.uv[3]=uv+_MainTex_TexelSize.xy*half2(-1,1)*_SampleDistance;
+            o.uv[4]=uv+_MainTex_TexelSize.xy*half2(1,-2)*_SampleDistance;
+
+            return o;
+        }
+
+        // 比较对角线上两个纹理值的差值，返回值要么是0要么是1
+        // 返回0表示存在边界，否则1
+        half CheckSame(half4 center, half4 sample){
+            half2 centerNormal=center.xy;
+            float centerDepth=DecodeFloatRG(center.zw);
+            half2 sampleNormal=sample.xy;
+            float sampleDepth=DecodeFloatRG(sample.zw);
+
+            // difference in normals
+            // do not bother decoding normals - there's no need here
+            half2 diffNormal=abs(centerNormal-sampleNormal)*_Sensitivity.x;
+            int isSameNormal=(diffNormal.x+diffNormal.y)<0.1;
+            // difference in depth
+            float diffDepth=abs(centerDepth-sampleDepth)*_Sensitivity.y;
+            // scale the required threshold by the distance
+            int isSameDepth=diffDepth<0.1*centerDepth;
+
+            // return:
+            // 1 - if normals and depth are similar enough
+            // o - otherwise
+            return isSameNormal*isSameDepth?1.0:0.0;
+        }
+
+        fixed4 fragRobertsCrossDepthAndNormal(v2f i):SV_Target{
+            half4 sample1=tex2D(_CameraDepthNormalsTexture,i.uv[1]);
+            half4 sample2=tex2D(_CameraDepthNormalsTexture,i.uv[2]);
+            half4 sample3=tex2D(_CameraDepthNormalsTexture,i.uv[3]);
+            half4 sample4=tex2D(_CameraDepthNormalsTexture,i.uv[4]);
+
+            half edge=1.0;
+            edge*=CheckSame(sample1,sample2);
+            edge*=CheckSame(sample3,sample4);
+
+            fixed4 withEdgeColor=lerp(_EdgeColor,tex2D(_MainTex,i.uv[0]),edge);
+            fixed4 onlyEdgeColor=lerp(_EdgeColor,_BackgroundColor,edge);
+
+            return lerp(withEdgeColor,onlyEdgeColor,_EdgeOnly);
+        }  
+
+        ENDCG
+
+        Pass{
+            ZTest Always
+            Cull Off
+            ZWrite Off
+
+            CGPROGRAM
+            #pragma vertex vert
+            #pragma fragment fragRobertsCrossDepthAndNormal
+            ENDCG
+        }
+    }
+    Fallback Off
+}
+```
+
+运行效果如下：
+
+![](./Image/13.10.png)
+
+如果需要只对特定物体进行描边，可以使用Unity提供的Graphics.DrawMesh或Graphics.DrawMeshNow把需要描边的物体再次渲染一遍，然后使用本节的边缘检测算法计算深度或发现纹理中每个像素的梯度值，使用Shader中的Clip函数进行剔除。
+
+## 13.5 扩展阅读
+1. Unity再2011年SIGGRAPH（计算机图形学的顶级会议）上一个关于深度纹理实现各种特效的演讲（利用深度纹理来实现特定物体的描边、角色护盾、相交线的高光模拟等效果）：https://blogs.unity3d.com/2011/09/08/special-effects-with-depth-talk-at-siggraph/
+2. ImageEffect实现屏幕空间环境遮挡（Screen Space Ambient Occlusion, SSAO）（*已失效*）：https://docs.unity3d.com/Manual/comp-ImageEffects.html
+
 # 999. Ref
 1. 在透视投影和正交投影中使用深度缓冲重建世界坐标：https://www.derschmale.com/2014/03/19/reconstructing-positions-from-the-depth-buffer-pt-2-perspective-and-orthographic-general-case/
