@@ -2,59 +2,56 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-public class FogWithDepthTexture : PostEffectsBase
-{
+public class FogWithNoise : PostEffectsBase{
     public Shader fogShader;
     private Material fogMaterial = null;
-    public Material material
-    {
-        get
-        {
+    public Material material{
+        get{
             fogMaterial = CheckShaderAndCreateMaterial(fogShader, fogMaterial);
             return fogMaterial;
         }
     }
     private Camera myCamera;
-    new public Camera camera
-    {
-        get
-        {
-            if (myCamera == null)
-            {
+    new public Camera camera{
+        get{
+            if (myCamera == null){
                 myCamera = GetComponent<Camera>();
             }
             return myCamera;
         }
     }
     private Transform myCameraTransform;
-    public Transform cameraTransform
-    {
-        get
-        {
-            if (myCameraTransform == null)
-            {
+    public Transform cameraTransform{
+        get{
+            if(myCameraTransform == null){
                 myCameraTransform = camera.transform;
             }
+
             return myCameraTransform;
         }
     }
-    [Range(0.0f, 3.0f)]
+    [Range(0.1f, 3.0f)]
     public float fogDensity = 1.0f; // 雾的浓度
     public Color fogColor = Color.white; // 雾的颜色
-    public float fogStart = 0.0f; // 起始高度
-    public float fogEnd = 2.0f; // 终止高度
+    public float fogStart = 0.0f; // 雾效起始高度
+    public float fogEnd = 2.0f; // 雾效终止高度
+    public Texture noiseTexture; // 噪声纹理
+    [Range(-0.5f, 0.5f)]
+    public float fogXSpeed = 0.1f; // 噪声纹理在X方向上的移动速度
+    [Range(-0.5f, 0.5f)]
+    public float fogYSpeed = 0.1f; // 噪声纹理在Y方向上的移动速度
+    [Range(-0.5f, 0.5f)]
+    public float noiseAmount = 1.0f; // 噪声程度
 
-    void OnEnable()
-    {
+    void OnEnable(){
         camera.depthTextureMode |= DepthTextureMode.Depth;
     }
 
-    void OnRenderImage(RenderTexture src, RenderTexture dest)
-    {
-        if (material != null)
-        {
-            Matrix4x4 frustumCorners = Matrix4x4.identity; // 视锥矩阵
+    void OnRenderImage(RenderTexture src, RenderTexture dest){
+        if(material != null){
+            Matrix4x4 frustumCorners = Matrix4x4.identity;
 
+            // Compute frustumCorners
             float fov = camera.fieldOfView;
             float near = camera.nearClipPlane;
             float far = camera.farClipPlane;
@@ -87,18 +84,20 @@ public class FogWithDepthTexture : PostEffectsBase
             frustumCorners.SetRow(3, topLeft);
 
             material.SetMatrix("_FrustumCornersRay", frustumCorners);
-            material.SetMatrix("_ViewProjectionInverseMatrix", (camera.projectionMatrix *
-            camera.worldToCameraMatrix).inverse);
+            // material.SetMatrix("_ViewProjectionInverseMatrix", (camera.projectionMatrix * camera.worldToCameraMatrix).inverse);
 
             material.SetFloat("_FogDensity", fogDensity);
             material.SetColor("_FogColor", fogColor);
             material.SetFloat("_FogStart", fogStart);
             material.SetFloat("_FogEnd", fogEnd);
 
+            material.SetTexture("_NoiseTex", noiseTexture);
+            material.SetFloat("_FogXSpeed", fogXSpeed);
+            material.SetFloat("_FogYSpeed", fogYSpeed);
+            material.SetFloat("_NoiseAmount", noiseAmount);
+
             Graphics.Blit(src, dest, material);
-        }
-        else
-        {
+        }else{
             Graphics.Blit(src, dest);
         }
     }

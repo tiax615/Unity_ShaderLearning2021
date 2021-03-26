@@ -15,7 +15,7 @@ public class MotionBlurWithDepthTexture : PostEffectsBase
     [Range(0.0f,1.0f)]
     public float blurSize=0.5f; // 运动模糊时模糊图像使用的大小
     private Camera myCamera;
-    public Camera camera{
+    new public Camera camera{
         get{
             if(myCamera==null){
                 myCamera=GetComponent<Camera>();

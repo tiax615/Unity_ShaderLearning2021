@@ -24,6 +24,25 @@ public class EdgeDetectNormalsAndDepth : PostEffectsBase
 
     void OnEnable()
     {
-        GetComponent<Camera>().depthTextureMode|=DepthTextureMode.DepthNormals;
+        GetComponent<Camera>().depthTextureMode |= DepthTextureMode.DepthNormals;
+    }
+
+    [ImageEffectOpaque] // 只希望对不透明物体进行描边，不描边透明物体
+    void OnRenderImage(RenderTexture src, RenderTexture dest)
+    {
+        if (material != null)
+        {
+            material.SetFloat("_EdgeOnly", edgesOnly);
+            material.SetColor("_EdgeColor", edgeColor);
+            material.SetColor("_BackgroundColor", backgroundColor);
+            material.SetFloat("_SampleDistance", sampleDistance);
+            material.SetVector("_Sensitivity", new Vector4(sensitivityNormals, sensitivityDepth, 0.0f, 1.0f));
+
+            Graphics.Blit(src, dest, material);
+        }
+        else
+        {
+            Graphics.Blit(src, dest);
+        }
     }
 }

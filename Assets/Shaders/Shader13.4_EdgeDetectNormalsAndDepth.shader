@@ -1,58 +1,103 @@
-﻿Shader "Unlit/Shader13.4_EdgeDetectNormalsAndDepth"
-{
-    Properties
-    {
-        _MainTex ("Texture", 2D) = "white" {}
+﻿Shader "ShaderLearning/Shader13.4_EdgeDetectNormalsAndDepth"{
+    Properties{
+        _MainTex("Base (RGB)",2D)="white"{}
+        _EdgeOnly("Edge Only",Float)=1.0
+        _EdgeColor("Edge Color",Color)=(0,0,0,1)
+        _BackgroundColor("Background Color",Color)=(1,1,1,1)
+        _SampleDistance("Sample Distance",Float)=1.0
+        _Sensitivity("Sensitivity",Vector)=(1,1,1,1)
     }
-    SubShader
-    {
-        Tags { "RenderType"="Opaque" }
-        LOD 100
+    SubShader{
+        CGINCLUDE
 
-        Pass
-        {
+        #include "UnityCG.cginc"
+
+        sampler2D _MainTex;
+        half4 _MainTex_TexelSize;
+        fixed _EdgeOnly;
+        fixed4 _EdgeColor;
+        fixed4 _BackgroundColor;
+        float _SampleDistance;
+        half4 _Sensitivity;
+        sampler2D _CameraDepthNormalsTexture;
+
+        struct v2f{
+            float4 pos:SV_POSITION;
+            half2 uv[5]:TEXCOORD0;
+        };
+
+        v2f vert(appdata_img v){
+            v2f o;
+            o.pos=UnityObjectToClipPos(v.vertex);
+            half2 uv=v.texcoord;
+            o.uv[0]=uv;
+
+            // 进行了平台差异化处理
+            // 必要时对竖直方向进行了翻转
+            #if UNITY_UV_STARTS_AT_TOP
+            if(_MainTex_TexelSize.y<0)
+                uv.y=1-uv.y;
+            #endif
+
+            o.uv[1]=uv+_MainTex_TexelSize.xy*half2(1,1)*_SampleDistance;
+            o.uv[2]=uv+_MainTex_TexelSize.xy*half2(-1,-1)*_SampleDistance;
+            o.uv[3]=uv+_MainTex_TexelSize.xy*half2(-1,1)*_SampleDistance;
+            o.uv[4]=uv+_MainTex_TexelSize.xy*half2(1,-2)*_SampleDistance;
+
+            return o;
+        }
+
+        // 比较对角线上两个纹理值的差值，返回值要么是0要么是1
+        // 返回0表示存在边界，否则1
+        half CheckSame(half4 center, half4 sample){
+            half2 centerNormal=center.xy;
+            float centerDepth=DecodeFloatRG(center.zw);
+            half2 sampleNormal=sample.xy;
+            float sampleDepth=DecodeFloatRG(sample.zw);
+
+            // difference in normals
+            // do not bother decoding normals - there's no need here
+            half2 diffNormal=abs(centerNormal-sampleNormal)*_Sensitivity.x;
+            int isSameNormal=(diffNormal.x+diffNormal.y)<0.1;
+            // difference in depth
+            float diffDepth=abs(centerDepth-sampleDepth)*_Sensitivity.y;
+            // scale the required threshold by the distance
+            int isSameDepth=diffDepth<0.1*centerDepth;
+
+            // return:
+            // 1 - if normals and depth are similar enough
+            // o - otherwise
+            return isSameNormal*isSameDepth?1.0:0.0;
+        }
+
+        fixed4 fragRobertsCrossDepthAndNormal(v2f i):SV_Target{
+            half4 sample1=tex2D(_CameraDepthNormalsTexture,i.uv[1]);
+            half4 sample2=tex2D(_CameraDepthNormalsTexture,i.uv[2]);
+            half4 sample3=tex2D(_CameraDepthNormalsTexture,i.uv[3]);
+            half4 sample4=tex2D(_CameraDepthNormalsTexture,i.uv[4]);
+
+            half edge=1.0;
+            edge*=CheckSame(sample1,sample2);
+            edge*=CheckSame(sample3,sample4);
+
+            fixed4 withEdgeColor=lerp(_EdgeColor,tex2D(_MainTex,i.uv[0]),edge);
+            fixed4 onlyEdgeColor=lerp(_EdgeColor,_BackgroundColor,edge);
+
+            return lerp(withEdgeColor,onlyEdgeColor,_EdgeOnly);
+        }  
+
+        ENDCG
+
+        Pass{
+            ZTest Always
+            Cull Off
+            ZWrite Off
+
             CGPROGRAM
             #pragma vertex vert
-            #pragma fragment frag
-            // make fog work
-            #pragma multi_compile_fog
-
-            #include "UnityCG.cginc"
-
-            struct appdata
-            {
-                float4 vertex : POSITION;
-                float2 uv : TEXCOORD0;
-            };
-
-            struct v2f
-            {
-                float2 uv : TEXCOORD0;
-                UNITY_FOG_COORDS(1)
-                float4 vertex : SV_POSITION;
-            };
-
-            sampler2D _MainTex;
-            float4 _MainTex_ST;
-
-            v2f vert (appdata v)
-            {
-                v2f o;
-                o.vertex = UnityObjectToClipPos(v.vertex);
-                o.uv = TRANSFORM_TEX(v.uv, _MainTex);
-                UNITY_TRANSFER_FOG(o,o.vertex);
-                return o;
-            }
-
-            fixed4 frag (v2f i) : SV_Target
-            {
-                // sample the texture
-                fixed4 col = tex2D(_MainTex, i.uv);
-                // apply fog
-                UNITY_APPLY_FOG(i.fogCoord, col);
-                return col;
-            }
+            #pragma fragment fragRobertsCrossDepthAndNormal
             ENDCG
         }
     }
+    Fallback Off
 }
