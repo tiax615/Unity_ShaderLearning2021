@@ -317,7 +317,7 @@ Shader "ShaderLearning/Shader13.2_MotionBlurWithDepthTexture"{
 以上是片元着色器中使用逆矩阵来重建每个像素在世界空间下的位置的做法，这种做法往往会影响性能。在Unity自带的ImageEffect包有更多运动模糊的实现方法。
 
 ## 13.3 全局雾效
-**雾效（Fog）**是游戏里经常使用的一种效果。有这些方法实现：
+**雾效（Fog）** 是游戏里经常使用的一种效果。有这些方法实现：
 
 * 内置的基于距离的线性或指数雾效。效果有限，不能个性化操作
 * 在Shader中添加#pragma multi_compile_fog，并使用相关宏。效果有限，不能个性化操作
